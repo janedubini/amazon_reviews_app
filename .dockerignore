@@ -1,0 +1,7 @@
+__pycache__
+*.pyc
+.env
+playwright_profile/
+venv/
+node_modules/
+.git

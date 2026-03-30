@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Reviews Scraper</title>
+    <style>
+        :root {
+            --primary: #ff9900;
+            --primary-dark: #e88a00;
+            --bg: #0f1117;
+            --bg-card: #1a1d27;
+            --bg-input: #252833;
+            --text: #e8eaf0;
+            --text-muted: #8b8fa3;
+            --border: #2d3044;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 32px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .header-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--primary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+        .header p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .icon { font-size: 18px; }
+
+        /* Form */
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            border-color: var(--primary);
+        }
+        input::placeholder { color: var(--text-muted); }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #000;
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover:not(:disabled) { background: var(--border); }
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+        }
+        .btn-danger:hover:not(:disabled) { background: #dc2626; }
+        .btn-sm { padding: 7px 14px; font-size: 13px; }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* Progress */
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-input);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 3px;
+            transition: width 0.3s;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .status-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-running { background: rgba(59,130,246,0.15); color: var(--info); }
+        .badge-completed { background: rgba(34,197,94,0.15); color: var(--success); }
+        .badge-error { background: rgba(239,68,68,0.15); color: var(--danger); }
+        .badge-captcha { background: rgba(245,158,11,0.15); color: var(--warning); }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--bg-input);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Star Distribution */
+        .star-dist {
+            margin: 16px 0;
+        }
+        .star-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .star-label {
+            width: 50px;
+            text-align: right;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        .star-bar-bg {
+            flex: 1;
+            height: 20px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .star-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s;
+        }
+        .star-bar-5 { background: var(--success); }
+        .star-bar-4 { background: #84cc16; }
+        .star-bar-3 { background: var(--warning); }
+        .star-bar-2 { background: #f97316; }
+        .star-bar-1 { background: var(--danger); }
+        .star-count {
+            width: 36px;
+            text-align: right;
+            color: var(--text-muted);
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Sentiment */
+        .sentiment-row {
+            display: flex;
+            gap: 14px;
+            margin-top: 12px;
+        }
+        .sentiment-chip {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .sentiment-positive { background: rgba(34,197,94,0.1); color: var(--success); }
+        .sentiment-negative { background: rgba(239,68,68,0.1); color: var(--danger); }
+        .sentiment-neutral { background: rgba(139,143,163,0.1); color: var(--text-muted); }
+
+        /* Reviews Table */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            background: var(--bg-input);
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+        tr:hover td { background: rgba(255,153,0,0.03); }
+        .review-body {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+        .star-display {
+            color: var(--primary);
+            white-space: nowrap;
+        }
+
+        /* Hidden */
+        .hidden { display: none !important; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-icon">R</div>
+            <div>
+                <h1>Amazon Reviews Scraper</h1>
+                <p>Reviews sammeln, analysieren und exportieren</p>
+            </div>
+        </div>
+
+        <!-- Input Card -->
+        <div class="card">
+            <div class="card-title"><span class="icon">&#128269;</span> Neues Scraping starten</div>
+            <div class="form-row">
+                <div class="form-group" style="flex: 3;">
+                    <label>Amazon Produkt-URL</label>
+                    <input type="text" id="urlInput" placeholder="https://www.amazon.com/dp/B0CHXZYNY2 oder amazon.de Link...">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Sterne-Filter</label>
+                    <select id="starFilter">
+                        <option value="all">Alle Sterne</option>
+                        <option value="5_star">5 Sterne</option>
+                        <option value="4_star">4 Sterne</option>
+                        <option value="3_star">3 Sterne</option>
+                        <option value="2_star">2 Sterne</option>
+                        <option value="1_star">1 Stern</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 0.7;">
+                    <label>Max. Seiten</label>
+                    <input type="number" id="maxPages" value="20" min="1" max="100">
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="startBtn" onclick="startScraping()">
+                    &#9654; Scraping starten
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Card (hidden by default) -->
+        <div class="card hidden" id="progressCard">
+            <div class="card-title">
+                <span class="icon">&#9881;</span>
+                <span>Scraping-Status</span>
+                <span class="status-badge badge-running" id="statusBadge">Läuft</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="status-text" id="statusText">Initialisiere...</div>
+            <div style="margin-top: 12px;" class="btn-group">
+                <button class="btn btn-secondary btn-sm hidden" id="continueBtn" onclick="continueJob()">
+                    &#10003; Weiter (nach Login/CAPTCHA)
+                </button>
+                <button class="btn btn-danger btn-sm" id="cancelBtn" onclick="cancelJob()">
+                    &#10005; Abbrechen
+                </button>
+            </div>
+            <!-- CAPTCHA Screenshot -->
+            <div class="hidden" id="screenshotBox" style="margin-top: 16px;">
+                <p style="font-size: 13px; color: var(--warning); margin-bottom: 8px; font-weight: 600;">
+                    Amazon verlangt eine Verifizierung. Falls du den Browser nicht siehst (Cloud-Modus), hier ist ein Screenshot:
+                </p>
+                <img id="screenshotImg" src="" alt="CAPTCHA Screenshot"
+                     style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border);">
+            </div>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="card hidden" id="statsCard">
+            <div class="card-title"><span class="icon">&#128200;</span> Analyse</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">Reviews gesamt</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statAvg">0</div>
+                    <div class="stat-label">Durchschnitt</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statPositive">0</div>
+                    <div class="stat-label">Positiv</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statNegative">0</div>
+                    <div class="stat-label">Negativ</div>
+                </div>
+            </div>
+
+            <!-- Star Distribution -->
+            <div class="star-dist" id="starDist"></div>
+
+            <!-- Sentiment -->
+            <div class="sentiment-row" id="sentimentRow"></div>
+        </div>
+
+        <!-- Export Card -->
+        <div class="card hidden" id="exportCard">
+            <div class="card-title"><span class="icon">&#128190;</span> Exportieren</div>
+            <div class="btn-group">
+                <button class="btn btn-primary btn-sm" onclick="exportData('csv')">
+                    &#128196; CSV herunterladen
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="exportData('xlsx')">
+                    &#128202; Excel herunterladen
+                </button>
+            </div>
+        </div>
+
+        <!-- Reviews Table -->
+        <div class="card hidden" id="reviewsCard">
+            <div class="card-title">
+                <span class="icon">&#128172;</span>
+                <span>Reviews</span>
+                <span id="reviewCount" style="color: var(--text-muted); font-weight: 400;"></span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sterne</th>
+                            <th>Titel</th>
+                            <th>Review</th>
+                            <th>Autor</th>
+                            <th>Datum</th>
+                            <th>Hilfreich</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reviewsBody"></tbody>
+                </table>
+            </div>
+            <div style="margin-top: 12px; text-align: center;">
+                <button class="btn btn-secondary btn-sm" id="loadMoreBtn" onclick="loadMoreReviews()">
+                    Mehr laden...
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ─── State ──────────────────────────────────
+        const API = window.location.origin;
+        let currentJobId = null;
+        let pollTimer = null;
+        let reviewOffset = 0;
+        const REVIEW_PAGE_SIZE = 50;
+
+        // ─── Elements ───────────────────────────────
+        const $ = id => document.getElementById(id);
+
+        // ─── Auto-fill from Chrome Extension ────────
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const url = params.get('url');
+            if (url) $('urlInput').value = url;
+        })();
+
+        // ─── Start Scraping ─────────────────────────
+        async function startScraping() {
+            const url = $('urlInput').value.trim();
+            if (!url) { alert('Bitte eine Amazon-URL eingeben!'); return; }
+
+            $('startBtn').disabled = true;
+            $('progressCard').classList.remove('hidden');
+            $('statsCard').classList.add('hidden');
+            $('exportCard').classList.add('hidden');
+            $('reviewsCard').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API}/api/scrape`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url,
+                        star_filter: $('starFilter').value,
+                        max_pages: parseInt($('maxPages').value) || 20
+                    })
+                });
+                const data = await res.json();
+                currentJobId = data.job_id;
+                startPolling();
+            } catch (e) {
+                alert('Fehler beim Verbinden mit dem Server: ' + e.message);
+                $('startBtn').disabled = false;
+            }
+        }
+
+        // ─── Polling ────────────────────────────────
+        function startPolling() {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(pollStatus, 1000);
+        }
+
+        async function pollStatus() {
+            if (!currentJobId) return;
+
+            try {
+                const res = await fetch(`${API}/api/status/${currentJobId}`);
+                const data = await res.json();
+
+                $('statusText').textContent = data.progress;
+                updateBadge(data.status);
+
+                // Progress bar animation
+                if (data.status === 'running') {
+                    const bar = $('progressBar');
+                    const w = Math.min(95, (data.total_reviews / 50) * 100);
+                    bar.style.width = w + '%';
+                }
+
+                // CAPTCHA / Login + Screenshot
+                if (data.status === 'captcha_needed') {
+                    $('continueBtn').classList.remove('hidden');
+                    if (data.has_screenshot) {
+                        $('screenshotBox').classList.remove('hidden');
+                        $('screenshotImg').src = `${API}/api/screenshot/${currentJobId}?t=${Date.now()}`;
+                    }
+                } else {
+                    $('continueBtn').classList.add('hidden');
+                    $('screenshotBox').classList.add('hidden');
+                }
+
+                // Completed
+                if (data.status === 'completed' || data.status === 'error') {
+                    clearInterval(pollTimer);
+                    $('startBtn').disabled = false;
+                    $('cancelBtn').classList.add('hidden');
+                    $('progressBar').style.width = '100%';
+                    $('progressBar').style.animation = 'none';
+
+                    if (data.status === 'completed' && data.total_reviews > 0) {
+                        showStats(data.stats);
+                        $('exportCard').classList.remove('hidden');
+                        reviewOffset = 0;
+                        $('reviewsBody').innerHTML = '';
+                        loadMoreReviews();
+                        $('reviewsCard').classList.remove('hidden');
+                    }
+
+                    if (data.status === 'error') {
+                        $('statusText').textContent = 'Fehler: ' + (data.error || 'Unbekannter Fehler');
+                    }
+                }
+            } catch (e) {
+                console.error('Poll error:', e);
+            }
+        }
+
+        function updateBadge(status) {
+            const badge = $('statusBadge');
+            badge.className = 'status-badge';
+            switch (status) {
+                case 'running':
+                case 'starting':
+                    badge.classList.add('badge-running');
+                    badge.textContent = 'Läuft';
+                    break;
+                case 'completed':
+                    badge.classList.add('badge-completed');
+                    badge.textContent = 'Fertig';
+                    break;
+                case 'error':
+                    badge.classList.add('badge-error');
+                    badge.textContent = 'Fehler';
+                    break;
+                case 'captcha_needed':
+                    badge.classList.add('badge-captcha');
+                    badge.textContent = 'Eingabe nötig';
+                    break;
+            }
+        }
+
+        // ─── Continue / Cancel ──────────────────────
+        async function continueJob() {
+            if (!currentJobId) return;
+            await fetch(`${API}/api/continue/${currentJobId}`, { method: 'POST' });
+            $('continueBtn').classList.add('hidden');
+        }
+
+        async function cancelJob() {
+            if (!currentJobId) return;
+            await fetch(`${API}/api/cancel/${currentJobId}`, { method: 'POST' });
+            clearInterval(pollTimer);
+            $('startBtn').disabled = false;
+        }
+
+        // ─── Stats ──────────────────────────────────
+        function showStats(stats) {
+            if (!stats || !stats.total) return;
+            $('statsCard').classList.remove('hidden');
+
+            $('statTotal').textContent = stats.total;
+            $('statAvg').textContent = stats.average_rating ? stats.average_rating.toFixed(1) : '—';
+            $('statPositive').textContent = stats.sentiment ? stats.sentiment.positive : 0;
+            $('statNegative').textContent = stats.sentiment ? stats.sentiment.negative : 0;
+
+            // Star distribution
+            const dist = stats.star_distribution || {};
+            const maxCount = Math.max(...Object.values(dist), 1);
+            let distHtml = '';
+            for (let s = 5; s >= 1; s--) {
+                const count = dist[`${s}_star`] || 0;
+                const pct = (count / maxCount) * 100;
+                distHtml += `
+                    <div class="star-row">
+                        <span class="star-label">${s} ${'&#9733;'.repeat(s)}</span>
+                        <div class="star-bar-bg">
+                            <div class="star-bar star-bar-${s}" style="width: ${pct}%"></div>
+                        </div>
+                        <span class="star-count">${count}</span>
+                    </div>
+                `;
+            }
+            $('starDist').innerHTML = distHtml;
+
+            // Sentiment
+            if (stats.sentiment) {
+                const s = stats.sentiment;
+                $('sentimentRow').innerHTML = `
+                    <div class="sentiment-chip sentiment-positive">&#128522; Positiv: ${s.positive}</div>
+                    <div class="sentiment-chip sentiment-neutral">&#128528; Neutral: ${s.neutral}</div>
+                    <div class="sentiment-chip sentiment-negative">&#128543; Negativ: ${s.negative}</div>
+                `;
+            }
+        }
+
+        // ─── Reviews Table ──────────────────────────
+        async function loadMoreReviews() {
+            if (!currentJobId) return;
+
+            try {
+                const res = await fetch(`${API}/api/reviews/${currentJobId}?limit=${REVIEW_PAGE_SIZE}&offset=${reviewOffset}`);
+                const data = await res.json();
+
+                $('reviewCount').textContent = `(${data.total} gesamt)`;
+
+                const tbody = $('reviewsBody');
+                for (const r of data.reviews) {
+                    const rating = r.rating_numeric || 0;
+                    const stars = '&#9733;'.repeat(Math.round(rating)) + '&#9734;'.repeat(5 - Math.round(rating));
+                    const title = escapeHtml(r.title || '').replace(/^\d\.\d out of 5 stars\s*/i, '');
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="star-display">${stars}</td>
+                        <td><strong>${title}</strong></td>
+                        <td><div class="review-body">${escapeHtml(r.body || '')}</div></td>
+                        <td>${escapeHtml(r.author || '')}</td>
+                        <td style="white-space:nowrap;">${escapeHtml(r.date_clean || '')}</td>
+                        <td>${escapeHtml(r.helpful || '—')}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+
+                reviewOffset += data.reviews.length;
+
+                if (reviewOffset >= data.total) {
+                    $('loadMoreBtn').classList.add('hidden');
+                } else {
+                    $('loadMoreBtn').classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error('Load reviews error:', e);
+            }
+        }
+
+        // ─── Export ─────────────────────────────────
+        function exportData(format) {
+            if (!currentJobId) return;
+            window.open(`${API}/api/export/${currentJobId}/${format}`, '_blank');
+        }
+
+        // ─── Utils ──────────────────────────────────
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ─── Keyboard shortcut ──────────────────────
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && e.target.id === 'urlInput') startScraping();
+        });
+    </script>
+</body>
+</html>

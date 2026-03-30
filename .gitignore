@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+venv/
+backend/playwright_profile/
+backend/venv/
+.DS_Store
+*.csv
+*.xlsx

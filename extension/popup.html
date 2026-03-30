@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    :root {
+      --primary: #ff9900;
+      --primary-dark: #e88a00;
+      --bg: #1a1d27;
+      --bg-input: #252833;
+      --text: #e8eaf0;
+      --text-muted: #8b8fa3;
+      --border: #2d3044;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      width: 32px; height: 32px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 16px; color: #000;
+    }
+    .header h2 { font-size: 15px; }
+    .header small { font-size: 11px; color: var(--text-muted); display: block; }
+
+    .product-info {
+      background: var(--bg-input);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+    .product-info .asin { color: var(--primary); font-weight: 600; }
+    .product-info .url {
+      color: var(--text-muted);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      margin-top: 4px;
+    }
+
+    .not-product {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 20px 0;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      margin-bottom: 10px;
+    }
+    select:focus, input:focus { border-color: var(--primary); }
+
+    .row { display: flex; gap: 8px; }
+    .row > div { flex: 1; }
+
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #000; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .server-status {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 11px;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .dot-online { background: var(--success); }
+    .dot-offline { background: var(--danger); }
+
+    .settings-row {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .settings-row label { margin-bottom: 4px; }
+    .settings-row input {
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">R</div>
+    <div>
+      <h2>Amazon Reviews Scraper</h2>
+      <small>Reviews sammeln mit einem Klick</small>
+    </div>
+  </div>
+
+  <div id="productInfo" class="product-info" style="display:none;">
+    <span class="asin" id="asinLabel"></span>
+    <span class="url" id="urlLabel"></span>
+  </div>
+
+  <div id="notProduct" class="not-product" style="display:none;">
+    Öffne eine Amazon-Produktseite,<br>um Reviews zu scrapen.
+  </div>
+
+  <div id="controls" style="display:none;">
+    <div class="row">
+      <div>
+        <label>Sterne-Filter</label>
+        <select id="starFilter">
+          <option value="all">Alle Sterne</option>
+          <option value="5_star">5 Sterne</option>
+          <option value="4_star">4 Sterne</option>
+          <option value="3_star">3 Sterne</option>
+          <option value="2_star">2 Sterne</option>
+          <option value="1_star">1 Stern</option>
+        </select>
+      </div>
+      <div>
+        <label>Max. Seiten</label>
+        <input type="number" id="maxPages" value="20" min="1" max="100">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="scrapeBtn" onclick="startScrape()">
+      &#9654; Scraping starten
+    </button>
+  </div>
+
+  <div class="server-status" id="serverStatus">
+    <span class="status-dot dot-offline" id="statusDot"></span>
+    <span id="statusLabel">Prüfe Server...</span>
+  </div>
+
+  <div class="settings-row">
+    <label>Server-Adresse</label>
+    <input type="text" id="serverUrl" value="https://your-app.example.com" placeholder="https://your-cloud-url.com oder http://localhost:8000">
+  </div>
+
+  <script>
+    const SERVER_KEY = 'amz_scraper_server';
+    let serverUrl = localStorage.getItem(SERVER_KEY) || 'https://your-app.example.com';
+    let productUrl = '';
+    let productAsin = '';
+
+    document.getElementById('serverUrl').value = serverUrl;
+
+    // Server-URL speichern bei Änderung
+    document.getElementById('serverUrl').addEventListener('change', function () {
+      serverUrl = this.value.replace(/\/+$/, '');
+      localStorage.setItem(SERVER_KEY, serverUrl);
+      checkServer();
+    });
+
+    // Produktinfo vom Content Script holen
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs[0]) return showNotProduct();
+
+      chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_PRODUCT_INFO' }, (response) => {
+        if (chrome.runtime.lastError || !response || !response.isProductPage) {
+          showNotProduct();
+          return;
+        }
+
+        productUrl = response.url;
+        productAsin = response.asin;
+
+        document.getElementById('asinLabel').textContent = `ASIN: ${response.asin}`;
+        document.getElementById('urlLabel').textContent = response.url;
+        document.getElementById('productInfo').style.display = 'block';
+        document.getElementById('controls').style.display = 'block';
+      });
+    });
+
+    function showNotProduct() {
+      document.getElementById('notProduct').style.display = 'block';
+    }
+
+    // Server prüfen
+    async function checkServer() {
+      const dot = document.getElementById('statusDot');
+      const label = document.getElementById('statusLabel');
+
+      try {
+        const res = await fetch(serverUrl + '/', { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          dot.className = 'status-dot dot-online';
+          label.textContent = 'Server verbunden';
+          document.getElementById('scrapeBtn').disabled = false;
+        } else {
+          throw new Error();
+        }
+      } catch {
+        dot.className = 'status-dot dot-offline';
+        label.textContent = 'Server nicht erreichbar';
+        document.getElementById('scrapeBtn').disabled = true;
+      }
+    }
+    checkServer();
+
+    // Scraping starten
+    async function startScrape() {
+      if (!productUrl) return;
+
+      const starFilter = document.getElementById('starFilter').value;
+      const maxPages = parseInt(document.getElementById('maxPages').value) || 20;
+
+      // Öffne die Web-UI mit vorausgefüllter URL
+      const uiUrl = `${serverUrl}/?url=${encodeURIComponent(productUrl)}&star=${starFilter}&pages=${maxPages}`;
+
+      // Sende Scrape-Request direkt an den Server
+      try {
+        const res = await fetch(`${serverUrl}/api/scrape`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: productUrl,
+            star_filter: starFilter,
+            max_pages: maxPages,
+          }),
+        });
+        const data = await res.json();
+
+        // Öffne Web-UI zur Verfolgung des Fortschritts
+        chrome.tabs.create({ url: `${serverUrl}/?url=${encodeURIComponent(productUrl)}` });
+      } catch (e) {
+        alert('Fehler: ' + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
