@@ -324,6 +324,50 @@
             white-space: nowrap;
         }
 
+        /* Cookie Box */
+        .cookie-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .cookie-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .cookie-dot-ok { background: var(--success); }
+        .cookie-dot-no { background: var(--danger); }
+        textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 12px;
+            font-family: monospace;
+            outline: none;
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 10px;
+        }
+        textarea:focus { border-color: var(--primary); }
+        .collapse-toggle {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 13px;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .collapse-toggle:hover { color: var(--text); }
+
         /* Hidden */
         .hidden { display: none !important; }
 
@@ -341,6 +385,39 @@
             <div>
                 <h1>Amazon Reviews Scraper</h1>
                 <p>Reviews sammeln, analysieren und exportieren</p>
+            </div>
+        </div>
+
+        <!-- Cookie Card -->
+        <div class="card" id="cookieCard">
+            <div class="card-title">
+                <span class="icon">&#128274;</span>
+                <span>Amazon Login</span>
+            </div>
+            <div class="cookie-status" id="cookieStatus">
+                <span class="cookie-dot cookie-dot-no" id="cookieDot"></span>
+                <span id="cookieLabel">Keine Cookies — Amazon wird wahrscheinlich Login verlangen</span>
+            </div>
+            <div class="collapse-toggle" onclick="toggleCookieForm()">
+                <span id="cookieArrow">&#9654;</span> Cookies importieren (Anleitung)
+            </div>
+            <div class="hidden" id="cookieForm" style="margin-top: 12px;">
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.6;">
+                    <b>So geht's:</b><br>
+                    1. Öffne Amazon in deinem Browser und logge dich ein<br>
+                    2. Installiere die Extension <b>"Cookie-Editor"</b> (kostenlos im Chrome Web Store)<br>
+                    3. Klicke auf das Cookie-Editor Icon &#127850; und dann auf <b>"Export"</b> → <b>"Export as JSON"</b><br>
+                    4. Füge die kopierten Cookies hier ein:
+                </p>
+                <textarea id="cookieInput" placeholder='[{"name": "session-id", "value": "...", "domain": ".amazon.de", ...}]'></textarea>
+                <div class="btn-group">
+                    <button class="btn btn-primary btn-sm" onclick="importCookies()">
+                        &#128274; Cookies speichern
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteCookies()">
+                        &#128465; Cookies löschen
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -714,6 +791,62 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        // ─── Cookies ─────────────────────────────
+        function toggleCookieForm() {
+            const form = $('cookieForm');
+            const arrow = $('cookieArrow');
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                arrow.innerHTML = '&#9660;';
+            } else {
+                form.classList.add('hidden');
+                arrow.innerHTML = '&#9654;';
+            }
+        }
+
+        async function checkCookies() {
+            try {
+                const res = await fetch(`${API}/api/cookies`);
+                const data = await res.json();
+                const dot = $('cookieDot');
+                const label = $('cookieLabel');
+                if (data.has_cookies) {
+                    dot.className = 'cookie-dot cookie-dot-ok';
+                    label.textContent = `${data.count} Cookies geladen — Login sollte funktionieren`;
+                } else {
+                    dot.className = 'cookie-dot cookie-dot-no';
+                    label.textContent = 'Keine Cookies — Amazon wird wahrscheinlich Login verlangen';
+                }
+            } catch (e) { /* Server nicht erreichbar */ }
+        }
+        checkCookies();
+
+        async function importCookies() {
+            const text = $('cookieInput').value.trim();
+            if (!text) { alert('Bitte Cookies einfügen!'); return; }
+            try {
+                const res = await fetch(`${API}/api/cookies`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cookies_text: text })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    alert(`${data.count} Cookies gespeichert!`);
+                    $('cookieInput').value = '';
+                    toggleCookieForm();
+                    checkCookies();
+                } else {
+                    alert('Fehler: ' + (data.detail || 'Unbekannt'));
+                }
+            } catch (e) { alert('Fehler: ' + e.message); }
+        }
+
+        async function deleteCookies() {
+            await fetch(`${API}/api/cookies`, { method: 'DELETE' });
+            checkCookies();
         }
 
         // ─── Keyboard shortcut ──────────────────────

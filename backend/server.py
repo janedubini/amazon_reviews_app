@@ -41,6 +41,7 @@ app.add_middleware(
 
 # ─── State ──────────────────────────────────────────────────────────────────
 scrape_jobs: dict = {}
+saved_cookies: list = []  # Сохранённые cookie для Amazon
 
 STAR_FILTERS = {
     "all": None,
@@ -321,6 +322,11 @@ async def run_scraper(job_id: str, url: str, star_filter_key: str, max_pages: in
                 )
                 browser = None
 
+            # Cookies injizieren (falls vorhanden)
+            if saved_cookies:
+                await context.add_cookies(saved_cookies)
+                job["progress"] = f"ASIN: {asin} | {len(saved_cookies)} Cookies geladen..."
+
             page = await context.new_page()
             page.set_default_timeout(15000)
 
@@ -520,10 +526,79 @@ async def get_stats(job_id: str):
     return compute_stats(job["reviews"])
 
 
+# ─── Cookie Management ──────────────────────────────────────────────────────
+class CookieImport(BaseModel):
+    cookies_text: str  # JSON-Array oder Netscape-Format
+
+
+def parse_cookies_input(text: str) -> list:
+    """Parst Cookies aus JSON (EditThisCookie-Export) oder key=value-Format."""
+    import json
+    text = text.strip()
+
+    # 1) JSON-Array versuchen (EditThisCookie / Cookie-Editor Export)
+    if text.startswith("["):
+        try:
+            raw = json.loads(text)
+            cookies = []
+            for c in raw:
+                cookie = {
+                    "name": c.get("name", ""),
+                    "value": c.get("value", ""),
+                    "domain": c.get("domain", ".amazon.com"),
+                    "path": c.get("path", "/"),
+                }
+                if c.get("expirationDate"):
+                    cookie["expires"] = float(c["expirationDate"])
+                cookies.append(cookie)
+            return cookies
+        except Exception:
+            pass
+
+    # 2) key=value Paare (z.B. aus Browser DevTools → document.cookie)
+    cookies = []
+    for pair in text.split(";"):
+        pair = pair.strip()
+        if "=" in pair:
+            name, _, value = pair.partition("=")
+            cookies.append({
+                "name": name.strip(),
+                "value": value.strip(),
+                "domain": ".amazon.com",
+                "path": "/",
+            })
+    return cookies
+
+
+@app.post("/api/cookies")
+async def import_cookies(req: CookieImport):
+    """Importiere Amazon-Cookies für authentifiziertes Scraping."""
+    global saved_cookies
+    cookies = parse_cookies_input(req.cookies_text)
+    if not cookies:
+        raise HTTPException(400, "Keine gültigen Cookies erkannt.")
+    saved_cookies = cookies
+    return {"ok": True, "count": len(cookies)}
+
+
+@app.get("/api/cookies")
+async def get_cookie_status():
+    """Prüft ob Cookies vorhanden sind."""
+    return {"has_cookies": len(saved_cookies) > 0, "count": len(saved_cookies)}
+
+
+@app.delete("/api/cookies")
+async def delete_cookies():
+    """Cookies löschen."""
+    global saved_cookies
+    saved_cookies = []
+    return {"ok": True}
+
+
 # ─── Health Check (для Cloud-Plattformen) ───────────────────────────────────
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "has_cookies": len(saved_cookies) > 0}
 
 
 # ─── Serve Frontend ─────────────────────────────────────────────────────────
